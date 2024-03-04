@@ -3,6 +3,8 @@
 Deploy ingress with nginx controller for  devops.in domain with cert-bot and three alb with cluster ip and three nodeport service with url devops.in/homepage, devops.in/blog, devops.in/course-list respectively for nodes with 3 replicaset each.
 
 
+To deploy the setup you described, you'll need to follow these steps:
+
 1. Install nginx Ingress Controller:
    ```bash
    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.1.1/deploy/static/provider/cloud/deploy.yaml
@@ -13,14 +15,174 @@ Deploy ingress with nginx controller for  devops.in domain with cert-bot and thr
    kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml
    ```
 
-3. Create a ClusterIssuer for Let's Encrypt (similar to previous yaml).
+3. Create a ClusterIssuer for Let's Encrypt:
+   ```yaml
+   apiVersion: cert-manager.io/v1
+   kind: ClusterIssuer
+   metadata:
+     name: letsencrypt-prod
+   spec:
+     acme:
+       server: https://acme-v02.api.letsencrypt.org/directory
+       email: your-email@example.com
+       privateKeySecretRef:
+         name: letsencrypt-prod
+       solvers:
+       - http01:
+           ingress:
+             class: nginx
+   ```
+   Apply it using `kubectl apply -f clusterissuer.yaml`.
 
-4. Deploy TLS Secret for your domain.
+4. Create TLS Secret for your domain:
+   ```bash
+   kubectl create secret tls devops-in-tls --cert=path/to/your/cert.crt --key=path/to/your/key.key
+   ```
 
-5. Deploy Ingress for devops.in domain (similar to previous yaml).
+5. Deploy Ingress for devops.in domain:
+   ```yaml
+   apiVersion: networking.k8s.io/v1
+   kind: Ingress
+   metadata:
+     name: devops-ingress
+     annotations:
+       nginx.ingress.kubernetes.io/ssl-redirect: "true"
+       cert-manager.io/cluster-issuer: "letsencrypt-prod"
+   spec:
+     tls:
+     - hosts:
+       - devops.in
+       secretName: devops-in-tls
+     rules:
+     - host: devops.in
+       http:
+         paths:
+         - path: /homepage
+           pathType: Prefix
+           backend:
+             service:
+               name: homepage-service
+               port:
+                 number: 80
+         - path: /blog
+           pathType: Prefix
+           backend:
+             service:
+               name: blog-service
+               port:
+                 number: 80
+         - path: /course-list
+           pathType: Prefix
+           backend:
+             service:
+               name: course-list-service
+               port:
+                 number: 80
+   ```
 
-6. Deploy three NodePort Services (similar to previous yaml).
+6. Deploy three NodePort Services:
+   ```yaml
+   apiVersion: v1
+   kind: Service
+   metadata:
+     name: homepage-service
+   spec:
+     type: NodePort
+     selector:
+       app: homepage
+     ports:
+     - protocol: TCP
+       port: 80
+       targetPort: 80
+   ---
+   apiVersion: v1
+   kind: Service
+   metadata:
+     name: blog-service
+   spec:
+     type: NodePort
+     selector:
+       app: blog
+     ports:
+     - protocol: TCP
+       port: 80
+       targetPort: 80
+   ---
+   apiVersion: v1
+   kind: Service
+   metadata:
+     name: course-list-service
+   spec:
+     type: NodePort
+     selector:
+       app: course-list
+     ports:
+     - protocol: TCP
+       port: 80
+       targetPort: 80
+   ```
 
-7. Deploy three Replication Controllers (Deployments) with three replicas each (similar to previous yaml).
+7. Deploy three Replication Controllers (Deployments) with three replicas each:
+   ```yaml
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     name: homepage-deployment
+   spec:
+     replicas: 3
+     selector:
+       matchLabels:
+         app: homepage
+     template:
+       metadata:
+         labels:
+           app: homepage
+       spec:
+         containers:
+         - name: homepage
+           image: your-homepage-image
+           ports:
+           - containerPort: 80
+   ---
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     name: blog-deployment
+   spec:
+     replicas: 3
+     selector:
+       matchLabels:
+         app: blog
+     template:
+       metadata:
+         labels:
+           app: blog
+       spec:
+         containers:
+         - name: blog
+           image: your-blog-image
+           ports:
+           - containerPort: 80
+   ---
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     name: course-list-deployment
+   spec:
+     replicas: 3
+     selector:
+       matchLabels:
+         app: course-list
+     template:
+       metadata:
+         labels:
+           app: course-list
+       spec:
+         containers:
+         - name: course-list
+           image: your-course-list-image
+           ports:
+           - containerPort: 80
+   ```
 
-Make sure to replace placeholders like email, paths, and image names with your actual values.
+Replace `your-email@example.com`, `path/to/your/cert.crt`, `path/to/your/key.key`, `your-homepage-image`, `your-blog-image`, `your-course-list-image` with appropriate values. Additionally, configure your ingress to point to ALBs.
