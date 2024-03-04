@@ -2,7 +2,6 @@
 
 Deploy ingress with nginx controller for  devops.in domain with cert-bot and three alb with cluster ip and three nodeport service with url devops.in/homepage, devops.in/blog, devops.in/course-list respectively for nodes with 3 replicaset each.
 
-![ingress](https://github.com/smitwaman/ingress-K8s/blob/main/images/Picsart_24-0)
 
 
 To deploy the setup you described, you'll need to follow these steps:
